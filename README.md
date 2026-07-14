@@ -193,7 +193,7 @@ Runs `LLMClient.analyze_transaction` fresh (real network call) instead of loadin
 make evals         # green (5/5)
 make regress       # corrupts the fraud-detector system prompt + re-records
 make evals         # RED — asserts fail on the wrong reasoning
-make fix           # pipes the failure into claude CLI; agent edits ai/llm_client.py
+make fix           # writes .fix-prompt.md + invokes your coding agent headlessly
 make evals         # green again
 ```
 
@@ -213,7 +213,29 @@ assertions ("approve", "wire", "threshold") happen to also appear in the
 corrupted outputs — that's realistic partial-signal, same pattern you'd see
 in a real regression.
 
-`make fix` runs `./fix.sh` which pipes the full pytest failure block into `claude` (or `gh copilot suggest` with `AGENT=copilot`), asking it to edit only files under `temporal-tx-agent/ai/`. Requires the Claude Code CLI installed. To restore the pristine prompt without invoking the fix loop:
+### `make fix` — self-heal via any coding agent
+
+`make fix` runs `./fix.sh`, which:
+
+1. Runs the pytest suite. If it's green, exits cleanly.
+2. If red, writes the full failure block + editing constraints to `.fix-prompt.md`.
+3. Hands the prompt to a coding-agent CLI in **headless mode** (never opens an interactive REPL, never hijacks your terminal). The agent reads the failure, edits `temporal-tx-agent/ai/*.py`, and can re-run the recorder + pytest itself.
+
+Agent is selectable via env var, default is `opencode`:
+
+```bash
+./fix.sh                     # AGENT=opencode (default)
+AGENT=claude    ./fix.sh     # Claude Code — `claude -p --permission-mode acceptEdits`
+AGENT=opencode  ./fix.sh     # OpenCode    — `opencode run`
+AGENT=cursor    ./fix.sh     # Cursor      — `cursor-agent -p`
+AGENT=aider     ./fix.sh     # Aider       — `aider --message --yes-always temporal-tx-agent/ai/*.py`
+AGENT=paste     ./fix.sh     # no CLI; open .fix-prompt.md and paste anywhere
+AGENT=copilot   ./fix.sh     # falls through to paste (gh copilot has no headless file-edit mode)
+```
+
+**Verified end-to-end** with `AGENT=opencode` (Opus 4.7 via GitHub Copilot backend): it read the failure, identified the corrupted prompt at `llm_client.py:56`, restored it, re-recorded traces, re-ran pytest, and confirmed 5/5 green — all headlessly.
+
+To restore the pristine prompt manually without invoking the fix loop:
 
 ```bash
 mv temporal-tx-agent/ai/llm_client.py.bak temporal-tx-agent/ai/llm_client.py

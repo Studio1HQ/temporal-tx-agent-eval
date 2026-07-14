@@ -22,6 +22,11 @@ evals/traces/*.json
 # `make regress` creates <file>.bak via `sed -i.bak`. Not for commit.
 *.bak
 
+# --- Fix-loop prompt file ---
+# `./fix.sh` writes .fix-prompt.md with the pytest failure block for a
+# coding agent to consume. Regenerated each run, not for commit.
+.fix-prompt.md
+
 # --- Python ---
 .venv/
 venv/
